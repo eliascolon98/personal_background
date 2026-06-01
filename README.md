@@ -1,11 +1,20 @@
-# Consulta de Antecedentes Judiciales - Policía Nacional de Colombia
+# Consultas Colombia
 
-Servicio automatizado que consulta antecedentes judiciales en la página de la Policía Nacional de Colombia usando Puppeteer y 2Captcha.
+Servicio automatizado para consultar **antecedentes judiciales** (Policía Nacional) y **datos de vehículos** (RUNT) en Colombia.
+
+Incluye una interfaz web interactiva con animaciones para visualizar el progreso de cada consulta.
+
+## Tecnologías
+
+- **Node.js + TypeScript**
+- **Puppeteer** — Automatización del navegador
+- **2Captcha** — Resolución de CAPTCHA (reCAPTCHA v2 + imagen)
+- **Express** — Servidor HTTP y API REST
 
 ## Requisitos
 
 - Node.js 18+
-- API Key de [2Captcha](https://2captcha.com/) (para resolver el CAPTCHA automáticamente)
+- API Key de [2Captcha](https://2captcha.com/)
 
 ## Instalación
 
@@ -15,93 +24,141 @@ npm install
 
 ## Configuración
 
-1. Copia el archivo `.env.example` a `.env`:
+Copia el archivo de ejemplo y agrega tu API key:
 
 ```bash
 copy .env.example .env
 ```
 
-2. Edita `.env` y agrega tu API key de 2Captcha:
+Edita `.env`:
 
 ```
-TWOCAPTCHA_API_KEY=tu_api_key_real_aqui
+TWOCAPTCHA_API_KEY=tu_api_key_aqui
 PORT=3000
 ```
 
 ## Uso
 
-### Modo desarrollo
+### Desarrollo (hot-reload)
 
 ```bash
-npm run dev
+npm run start:dev
 ```
 
-### Compilar y ejecutar
+### Producción
 
 ```bash
 npm run build
 npm start
 ```
 
+Abre el navegador en `http://localhost:3000`
+
 ## Endpoints
 
 ### POST /consultar
 
-Consulta antecedentes por número de documento.
+Consulta antecedentes judiciales.
 
 **Request:**
 ```json
 {
-  "documento": "123456789"
+  "documento": "1002491594"
 }
 ```
 
-**Response exitosa:**
+**Response:**
 ```json
 {
   "success": true,
-  "documento": "123456789",
-  "fechaConsulta": "2024-01-15T10:30:00.000Z",
-  "antecedentes": "NO TIENE ASUNTOS PENDIENTES CON LAS AUTORIDADES JUDICIALES",
-  "mensaje": "Consulta realizada exitosamente"
+  "documento": "1002491594",
+  "nombre": "COLON MUÑOZ ELIAS ENRIQUE",
+  "tieneAntecedentes": false,
+  "mensaje": "NO TIENE ASUNTOS PENDIENTES CON LAS AUTORIDADES JUDICIALES",
+  "fechaConsulta": "2026-06-01T21:08:11.930Z",
+  "horaConsulta": "04:12:47 PM"
+}
+```
+
+### POST /consultar-vehiculo
+
+Consulta información del vehículo en el RUNT.
+
+**Request:**
+```json
+{
+  "placa": "SLV41H",
+  "documento": "1002491594"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "placa": "SLV41H",
+  "documento": "1002491594",
+  "fechaConsulta": "2026-06-01T22:30:00.000Z",
+  "vehiculo": {
+    "placa": "SLV41H",
+    "nroLicenciaTransito": "10035576963",
+    "estadoVehiculo": "ACTIVO",
+    "tipoServicio": "Particular",
+    "claseVehiculo": "MOTOCICLETA",
+    "marca": "YAMAHA",
+    "linea": "MTN155-A",
+    "modelo": "2026",
+    "color": "NEGRO",
+    "numeroMotor": "G3T5E0022122",
+    "numeroChasis": "9FKRG8125T2022122",
+    "numeroVIN": "9FKRG8125T2022122",
+    "cilindraje": "155",
+    "tipoCarroceria": "SIN CARROCERIA",
+    "tipoCombustible": "GASOLINA",
+    "fechaMatriculaInicial": "30/07/2025",
+    "autoridadTransito": "STRIA TTOyTTE MCPAL SABANETA",
+    "gravamenesPropiedad": "NO"
+  }
 }
 ```
 
 ### GET /consultar/:documento
 
-Consulta rápida por URL.
-
-```
-GET http://localhost:3000/consultar/123456789
-```
+Consulta rápida de antecedentes por URL.
 
 ### GET /health
 
-Verifica el estado del servidor.
+Estado del servidor.
 
-```json
-{
-  "status": "ok",
-  "captchaConfigured": true,
-  "timestamp": "2024-01-15T10:30:00.000Z"
-}
-```
+## Flujo de cada consulta
 
-## Flujo del proceso
+### Antecedentes (Policía Nacional)
 
-1. Navega a `https://antecedentes.policia.gov.co:7005/WebJudicial/index.xhtml`
-2. Hace scroll en los términos y condiciones
-3. Acepta los términos
-4. Redirige a la página de consulta
-5. Ingresa el número de documento (Cédula viene seleccionada por defecto)
-6. Captura la imagen del CAPTCHA y la envía a 2Captcha para resolución
-7. Ingresa la respuesta del CAPTCHA
-8. Hace clic en "Consultar"
-9. Extrae el resultado y lo retorna como JSON
+1. Navega a la página de términos y condiciones
+2. Acepta los términos (radio + botón)
+3. Redirige a la página de consulta
+4. Ingresa el número de documento
+5. Resuelve el reCAPTCHA v2 con 2Captcha
+6. Hace clic en "Consultar"
+7. Extrae y retorna el resultado
+
+### Vehículo (RUNT)
+
+1. Navega al portal público del RUNT
+2. Llena placa y documento del propietario
+3. Resuelve el captcha de imagen con 2Captcha
+4. Hace clic en "Consultar Información"
+5. Extrae toda la información del vehículo y la retorna
+
+## Costos de 2Captcha
+
+- **reCAPTCHA v2** (antecedentes): ~$2.99 por 1000 consultas
+- **Captcha de imagen** (vehículo): ~$1.00 por 1000 consultas
+
+Con $3 USD tienes aproximadamente 1000 consultas de antecedentes o 3000 de vehículo.
 
 ## Notas
 
-- El servicio usa `puppeteer` en modo headless para automatizar la navegación.
-- El CAPTCHA se resuelve mediante el servicio de pago [2Captcha](https://2captcha.com/).
-- Cada consulta puede tomar entre 15-45 segundos dependiendo del tiempo de resolución del CAPTCHA.
-- Se ignoran errores de certificado SSL ya que el sitio de la policía puede tener certificados auto-firmados.
+- Cada consulta toma entre 15-60 segundos dependiendo del CAPTCHA.
+- Se ignoran errores de certificado SSL (el sitio de la policía usa certificados auto-firmados).
+- El scraper de vehículos usa Puppeteer para renderizar la app Angular del RUNT.
