@@ -3,6 +3,7 @@ import path from 'path';
 import { config } from './config';
 import { consultarAntecedentes, ConsultaResult } from './scraper';
 import { consultarVehiculo, VehiculoResult } from './scraper-vehiculo';
+import { consultarSimit, SimitResult } from './scraper-simit';
 
 const app = express();
 app.use(express.json());
@@ -89,6 +90,41 @@ app.get('/consultar/:documento', async (req, res) => {
   }
 });
 
+// Endpoint para consultar comparendos en SIMIT (acepta número de documento o placa)
+app.post('/consultar-simit', async (req, res) => {
+  req.setTimeout(180000);
+  res.setTimeout(180000);
+
+  const { busqueda } = req.body;
+
+  if (!busqueda || busqueda.trim().length < 3) {
+    res.status(400).json({ success: false, error: 'El campo "busqueda" es requerido (documento o placa)' });
+    return;
+  }
+
+  if (!/^[a-zA-Z0-9]+$/.test(busqueda.trim())) {
+    res.status(400).json({ success: false, error: 'La búsqueda debe contener solo letras y números' });
+    return;
+  }
+
+  const termino = busqueda.trim().toUpperCase();
+  console.log(`\n=== Consulta SIMIT: ${termino} ===`);
+
+  try {
+    const resultado: SimitResult = await consultarSimit(termino);
+    res.status(resultado.success ? 200 : 500).json(resultado);
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      busqueda: termino,
+      comparendos: [],
+      totalComparendos: 0,
+      fechaConsulta: new Date().toISOString(),
+      error: error.message,
+    });
+  }
+});
+
 // Health check
 app.get('/health', (_req, res) => {
   res.json({
@@ -103,6 +139,7 @@ const server = app.listen(config.port, () => {
   console.log(`\n📋 Endpoints:`);
   console.log(`   POST /consultar            - Antecedentes { "documento": "..." }`);
   console.log(`   POST /consultar-vehiculo   - Vehículo { "placa": "...", "documento": "..." }`);
+  console.log(`   POST /consultar-simit      - Comparendos SIMIT { "busqueda": "doc o placa" }`);
   console.log(`   GET  /health`);
   console.log(`\n⚙️  2Captcha: ${config.twoCaptchaApiKey ? '✓' : '✗'}`);
 });
